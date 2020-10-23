@@ -221,119 +221,156 @@ client.on('message', async (message) => {
 
         // Começa o jogo
 
-        let gameEnded = true;
+        let gameEnded = false;
 
         while (!gameEnded) {
           // Todo mundo decide oq vai fazer
 
           let huntedPerson = false;
 
+          const playersVotesPromises = [];
+
           Object.values(game.werewolves).forEach(async (werewolf) => {
             if (werewolf.isAlive) {
-              try {
-                const otherPlayers = [];
-                let werewolfMessage = 'Quem você decide matar? 💀\n';
-                game.players.forEach((player) => {
-                  if (player.isAlive) {
-                    otherPlayers.push(player);
-                    werewolfMessage += `${otherPlayers.length - 1} - ${
-                      player.discordUser.username
-                    }\n`;
-                  }
-                });
+              playersVotesPromises.push(
+                new Promise((resolve) => {
+                  const run = async () => {
+                    try {
+                      const otherPlayers = [];
+                      let werewolfMessage = 'Quem você decide matar? 💀\n';
+                      game.players.forEach((player) => {
+                        if (player.isAlive) {
+                          otherPlayers.push(player);
+                          werewolfMessage += `${otherPlayers.length - 1} - ${
+                            player.discordUser.username
+                          }\n`;
+                        }
+                      });
 
-                const werewolfDiscordMessage = werewolf.discordUser.send(werewolfMessage);
-                let werewolfResponse;
-                await werewolfDiscordMessage.channel.awaitMessages(
-                  (response) => {
-                    werewolfResponse = parseInt(response.content);
-                    return werewolfResponse >= 0 && werewolfResponse <= otherPlayers.length - 1;
-                  },
-                  { max: 1, time: 20000, errors: ['time'] },
-                );
+                      const werewolfDiscordMessage = werewolf.discordUser.send(werewolfMessage);
+                      let werewolfResponse;
+                      await werewolfDiscordMessage.channel.awaitMessages(
+                        (response) => {
+                          werewolfResponse = parseInt(response.content);
+                          return (
+                            werewolfResponse >= 0 && werewolfResponse <= otherPlayers.length - 1
+                          );
+                        },
+                        { max: 1, time: 20000, errors: ['time'] },
+                      );
 
-                huntedPerson = otherPlayers[werewolfResponse];
+                      huntedPerson = otherPlayers[werewolfResponse];
 
-                werewolf.discordUser.send(
-                  `Voce escolheu matar ${otherPlayers[werewolfResponse].discordUser.username}!`,
-                );
-              } catch (err) {
-                werewolf.discordUser.send('Voce se abstraiu do voto 😐');
-              }
+                      await werewolf.discordUser.send(
+                        `Voce escolheu matar ${otherPlayers[werewolfResponse].discordUser.username}!`,
+                      );
+                    } catch (err) {
+                      werewolf.discordUser.send('Voce se abstraiu do voto 😐');
+                    }
+
+                    resolve();
+                  };
+
+                  run();
+                }),
+              );
             }
           });
 
           let savedPerson = false;
 
           if (game.doctor.isAlive) {
-            try {
-              const otherPlayers = [];
-              let doctorMessage = 'Quem você decide salvar? 💖\n';
-              game.players.forEach((player) => {
-                if (player.isAlive) {
-                  otherPlayers.push(player);
-                  doctorMessage += `${otherPlayers.length - 1} - ${player.discordUser.username}\n`;
-                }
-              });
+            playersVotesPromises.push(
+              new Promise((resolve) => {
+                const run = async () => {
+                  try {
+                    const otherPlayers = [];
+                    let doctorMessage = 'Quem você decide salvar? 💖\n';
+                    game.players.forEach((player) => {
+                      if (player.isAlive) {
+                        otherPlayers.push(player);
+                        doctorMessage += `${otherPlayers.length - 1} - ${
+                          player.discordUser.username
+                        }\n`;
+                      }
+                    });
 
-              const doctorDiscordMessage = game.doctor.discordUser.send(doctorMessage);
-              let doctorResponse;
-              await doctorDiscordMessage.channel.awaitMessages(
-                (response) => {
-                  doctorResponse = parseInt(response.content);
-                  return doctorResponse >= 0 && doctorResponse <= otherPlayers.length - 1;
-                },
-                { max: 1, time: 20000, errors: ['time'] },
-              );
+                    const doctorDiscordMessage = game.doctor.discordUser.send(doctorMessage);
+                    let doctorResponse;
+                    await doctorDiscordMessage.channel.awaitMessages(
+                      (response) => {
+                        doctorResponse = parseInt(response.content);
+                        return doctorResponse >= 0 && doctorResponse <= otherPlayers.length - 1;
+                      },
+                      { max: 1, time: 20000, errors: ['time'] },
+                    );
 
-              savedPerson = otherPlayers[doctorResponse];
+                    savedPerson = otherPlayers[doctorResponse];
 
-              game.doctor.discordUser.send(
-                `Voce escolheu salvar ${otherPlayers[doctorResponse].discordUser.username}!`,
-              );
-            } catch (err) {
-              game.doctor.discordUser.send('Voce se abstraiu do voto 😐');
-            }
+                    await game.doctor.discordUser.send(
+                      `Voce escolheu salvar ${otherPlayers[doctorResponse].discordUser.username}!`,
+                    );
+                  } catch (err) {
+                    game.doctor.discordUser.send('Voce se abstraiu do voto 😐');
+                  }
+                  resolve();
+                };
+
+                run();
+              }),
+            );
           }
 
           if (game.seer.isAlive) {
-            try {
-              const otherPlayers = [];
-              let seerMessage = 'Escolha um jogador para descobrir a verdade sobre ele 👀\n';
-              game.players.forEach((player) => {
-                if (player.isAlive && player.discordUser.id !== game.seer.discordUser.id) {
-                  otherPlayers.push(player);
-                  seerMessage += `${otherPlayers.length - 1} - ${player.discordUser.username}\n`;
-                }
-              });
+            playersVotesPromises.push(
+              new Promise((resolve) => {
+                const run = async () => {
+                  try {
+                    const otherPlayers = [];
+                    let seerMessage = 'Escolha um jogador para descobrir a verdade sobre ele 👀\n';
+                    game.players.forEach((player) => {
+                      if (player.isAlive && player.discordUser.id !== game.seer.discordUser.id) {
+                        otherPlayers.push(player);
+                        seerMessage += `${otherPlayers.length - 1} - ${
+                          player.discordUser.username
+                        }\n`;
+                      }
+                    });
 
-              const seerDiscordMessage = game.seer.discordUser.send(seerMessage);
-              let seerResponse;
-              await seerDiscordMessage.channel.awaitMessages(
-                (response) => {
-                  seerResponse = parseInt(response.content);
-                  return seerResponse >= 0 && seerResponse <= otherPlayers.length - 1;
-                },
-                { max: 1, time: 20000, errors: ['time'] },
-              );
+                    const seerDiscordMessage = game.seer.discordUser.send(seerMessage);
+                    let seerResponse;
+                    await seerDiscordMessage.channel.awaitMessages(
+                      (response) => {
+                        seerResponse = parseInt(response.content);
+                        return seerResponse >= 0 && seerResponse <= otherPlayers.length - 1;
+                      },
+                      { max: 1, time: 20000, errors: ['time'] },
+                    );
 
-              if (otherPlayers[seerResponse].role === game.roles.werewolf) {
-                game.seer.discordUser.send(
-                  `${otherPlayers[seerResponse].discordUser.username} é um lobisomem! 😲`,
-                );
-              } else {
-                game.seer.discordUser.send(
-                  `${otherPlayers[seerResponse].discordUser.username} não é um lobisomem! 😌`,
-                );
-              }
-            } catch (err) {
-              game.seer.discordUser.send('Voce se abstraiu de saber quem é o lobisomem 😵');
-            }
+                    if (otherPlayers[seerResponse].role === game.roles.werewolf) {
+                      game.seer.discordUser.send(
+                        `${otherPlayers[seerResponse].discordUser.username} é um lobisomem! 😲`,
+                      );
+                    } else {
+                      game.seer.discordUser.send(
+                        `${otherPlayers[seerResponse].discordUser.username} não é um lobisomem! 😌`,
+                      );
+                    }
+                  } catch (err) {
+                    game.seer.discordUser.send('Voce se abstraiu de saber quem é o lobisomem 😵');
+                  }
+                  resolve();
+                };
+                run();
+              }),
+            );
           }
+
+          await Promise.all(playersVotesPromises);
 
           // Mostra os resultados
 
-          if (savedPerson.discordUser.id === huntedPerson.discordUser.id) {
+          if (!huntedPerson || savedPerson.discordUser.id === huntedPerson.discordUser.id) {
             message.channel.send(`Alguém foi salvo pelo medico 🤩`);
           } else {
             huntedPerson.isAlive = false;
@@ -347,7 +384,7 @@ client.on('message', async (message) => {
           if (game.villagersAlive > game.werewolvesAlive) {
             game.rounds++;
           } else {
-            message.channel.send(`Os lobos ganharam! 🐺🌑`);
+            await message.channel.send(`Os lobos ganharam! 🐺🌑`);
           }
 
           // Pede para todo mundo votar para expulsar alguem
@@ -361,7 +398,7 @@ client.on('message', async (message) => {
             }
           });
 
-          message.channel.send(dayMessage);
+          await message.channel.send(dayMessage);
 
           const collector = message.channel.createMessageCollector(
             (dayVoteMessage) => {
@@ -371,37 +408,49 @@ client.on('message', async (message) => {
             { time: 180000 },
           );
 
-          collector.on('collect', async (dayVoteMessage) => {
-            game.players[dayVoteMessage.author.id].vote = parseInt(dayVoteMessage);
-            await dayVoteMessage.react('👍');
-          });
-
-          collector.on('end', () => {
-            const votes = new Array(playersAlive.length).fill(0);
-
-            Object.values(game.players).forEach((player) => {
-              if (player.isAlive && player.vote !== -1) {
-                votes[player.vote]++;
-              }
+          const dayVotePromise = new Promise((resolve) => {
+            collector.on('collect', async (dayVoteMessage) => {
+              game.players[dayVoteMessage.author.id].vote = parseInt(dayVoteMessage);
+              await dayVoteMessage.react('👍');
             });
 
-            const mostVoted = votes.indexOf(Math.max(...votes));
+            collector.on('end', () => {
+              const votes = new Array(playersAlive.length).fill(0);
 
-            playersAlive[mostVoted].isAlive = false;
-            if (
-              playersAlive[mostVoted].role !== game.roles.werewolf &&
-              game.villagersAlive - 1 <= game.werewolvesAlive
-            ) {
-              message.channel.send(
-                `${playersAlive[mostVoted].discordUser.id} foi escolhido para morrer! 💀\nOs lobisomens destruiram a vila! 🐺🩸💀`,
-              );
-              gameEnded = true;
-            } else {
-              message.channel.send(
-                `${playersAlive[mostVoted].discordUser.id} foi escolhido para morrer! 💀\nUma nova noite começa 🌑`,
-              );
-            }
+              Object.values(game.players).forEach((player) => {
+                if (player.isAlive && player.vote !== -1) {
+                  votes[player.vote]++;
+                }
+              });
+
+              const mostVotedQty = Math.max(...votes);
+              if (mostVotedQty === 0) {
+                message.channel.send(
+                  `Ninguem foi escolhido pra morrer! 💀\nUma nova noite começa 🌑`,
+                );
+              } else {
+                const mostVoted = votes.indexOf(mostVotedQty);
+
+                playersAlive[mostVoted].isAlive = false;
+                if (
+                  playersAlive[mostVoted].role !== game.roles.werewolf &&
+                  game.villagersAlive - 1 <= game.werewolvesAlive
+                ) {
+                  message.channel.send(
+                    `${playersAlive[mostVoted].discordUser.id} foi escolhido para morrer! 💀\nOs lobisomens destruiram a vila! 🐺🩸💀`,
+                  );
+                  gameEnded = true;
+                } else {
+                  message.channel.send(
+                    `${playersAlive[mostVoted].discordUser.id} foi escolhido para morrer! 💀\nUma nova noite começa 🌑`,
+                  );
+                }
+              }
+              resolve();
+            });
           });
+
+          await dayVotePromise();
         }
       } else {
         message.channel.send(`Pelo visto ninguem quer participar 😥`);
