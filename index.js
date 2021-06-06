@@ -1,8 +1,9 @@
 const Discord = require('discord.js');
-const client = new Discord.Client();
-var randomNumber = require('random-number-csprng');
+const randomNumber = require('random-number-csprng');
 
 const { prefix, token } = require('./config.json');
+
+const client = new Discord.Client();
 
 client.once('ready', () => {
   console.log('Ready!');
@@ -68,6 +69,12 @@ async function sortWerewolves(ammount) {
   }
 
   game.werewolves.forEach((werewolf) => {
+    if (game.werewolves.length === 1) {
+      return werewolf.discordUser.send(
+        'Você é Lobisomem 🐺, ganhe matando os outros jogadores sem ser descoberto!',
+      );
+    }
+
     let wolves = 'Você é Lobisomem 🐺 juntamente com:\n';
     game.werewolves.forEach((element) => {
       if (werewolf.discordUser.id !== element.discordUser.id) {
@@ -126,7 +133,7 @@ client.on('message', async (message) => {
           }
         });
 
-        if (collected.count - 1 < 4) {
+        if (collected.count - 1 < 5) {
           await message.channel.send(
             `Infelizmente não da pra jogar com apenas ${collected.count - 1} pessoa${
               collected.count - 1 != 0 && 's'
@@ -143,7 +150,7 @@ client.on('message', async (message) => {
 
         // Esperar todo mundo confirmar se vai jogar
         const playersConfirmPromises = [];
-        Object.values(game.players).forEach(async (player) => {
+        Object.values(game.players).forEach((player) => {
           playersConfirmPromises.push(
             new Promise((resolve) => {
               async function confirm() {
@@ -230,7 +237,7 @@ client.on('message', async (message) => {
 
           const playersVotesPromises = [];
 
-          Object.values(game.werewolves).forEach(async (werewolf) => {
+          Object.values(game.werewolves).forEach((werewolf) => {
             if (werewolf.isAlive) {
               playersVotesPromises.push(
                 new Promise((resolve) => {
@@ -409,8 +416,17 @@ client.on('message', async (message) => {
           );
 
           const dayVotePromise = new Promise((resolve) => {
+            let votes = 0;
+
             collector.on('collect', async (dayVoteMessage) => {
+              if (!game.players[dayVoteMessage.author.id].vote) {
+                votes++;
+              }
               game.players[dayVoteMessage.author.id].vote = parseInt(dayVoteMessage);
+              if (votes === playersAlive.length) {
+                collector.stop('Todos os jogadores votaram');
+              }
+
               await dayVoteMessage.react('👍');
             });
 
